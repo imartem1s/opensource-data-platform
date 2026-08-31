@@ -1,5 +1,76 @@
 services:
 
+  postgres:
+    image: postgres:16
+    networks:
+      - postgres_net
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: always
+  
+  airflow-scheduler:
+    image: apache/airflow:3.3.1
+    command: scheduler
+    restart: always
+    networks:
+      - postgres_net
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+      AIRFLOW__CORE__FERNET_KEY: AMpYQyijpW6_OntVU7S1kW1bGg3FNofr6aryBTGtbnk=
+  
+  airflow-apiserver:
+    command: api-server
+    image: apache/airflow:3.3.1
+    networks:
+     - postgres_net
+    ports:
+      - "8082:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8082/api/v2/monitor/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow                   
+      AIRFLOW__CORE__FERNET_KEY: AMpYQyijpW6_OntVU7S1kW1bGg3FNofr6aryBTGtbnk=
+  
+  airflow-init:
+    image: apache/airflow:3.3.1
+    entrypoint: /bin/bash
+    networks:
+      - postgres_net
+    depends_on:
+      - postgres
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow                   
+      AIRFLOW__CORE__FERNET_KEY: AMpYQyijpW6_OntVU7S1kW1bGg3FNofr6aryBTGtbnk=
+    command:
+      - -c
+      - |
+        airflow db migrate
+
   spark-iceberg:
     image: tabulario/spark-iceberg
     container_name: spark-iceberg
@@ -20,6 +91,8 @@ services:
       - 8080:8080
       - 10000:10000
       - 10001:10001
+      - "4040:4040" 
+      - "4041:4041"
 
   rest:
     image: apache/iceberg-rest-fixture:1.10.1
@@ -76,7 +149,11 @@ services:
 volumes:
   minio-data:
     driver: local
+  postgres-db-volume:
 
 networks:
   iceberg_net:
+    driver: bridge
+  
+  postgres_net:
     driver: bridge
