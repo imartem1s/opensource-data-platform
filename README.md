@@ -1,2 +1,2 @@
-# openstack-data-platform
-Open stack data platform data engineer.
+# opensource-data-platform
+Open source data platform data engineer.
