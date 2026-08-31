@@ -18,6 +18,27 @@ services:
       retries: 5
       start_period: 5s
     restart: always
+
+  postgres-prod:
+    image: postgres:16
+    container_name: postgres-prod
+    networks:
+      - postgres_net
+    environment:
+      POSTGRES_USER: adminproduser
+      POSTGRES_PASSWORD: adminprodpassword
+      POSTGRES_DB: prod-postgre
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres-prod-volume:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "adminproduser"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: always
   
   airflow-scheduler:
     image: apache/airflow:3.3.1
@@ -76,12 +97,15 @@ services:
     container_name: spark-iceberg
     networks:
       - iceberg_net
+      - postgres_net
     depends_on:
       - rest
       - minio
     volumes:
       - ./warehouse:/home/iceberg/warehouse
       - ./notebooks:/home/iceberg/notebooks/notebooks
+      - ./jars:/home/iceberg/jars
+      - ./spark-jobs:/home/iceberg/spark-jobs
     environment:
       - AWS_ACCESS_KEY_ID=rootuser
       - AWS_SECRET_ACCESS_KEY=rootpassword
@@ -150,6 +174,7 @@ volumes:
   minio-data:
     driver: local
   postgres-db-volume:
+  postgres-prod-volume:
 
 networks:
   iceberg_net:
