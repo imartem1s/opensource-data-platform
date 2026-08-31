@@ -1,2 +1,2 @@
 # opensource-data-platform
-Open source data platform data engineer.
+Open source modern data lakehouse platform using minio+iceberg, spark, airflow, postgre, for data engineer.
